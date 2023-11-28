@@ -1,0 +1,204 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Pawn</title>
+  <style>
+    /* Image styling */
+    .wp-image-7 {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .wp-image-7:hover {
+      transform: scale(1.1);
+    }
+
+    /* Pulse animation */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    /* Apply pulse animation to the image with the custom class */
+    .pulse-image {
+      animation: pulse 2s infinite;
+      cursor: pointer;
+    }
+
+    /* Popup styling */
+    #cameraPopup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <figure class="wp-block-image size-full is-resized pulse-image" id="pulseImage">
+    <img src="logo.png" alt="" class="wp-image-7 pulse-image" />
+  </figure>
+
+  <div id="cameraPopup">
+    <video id="cameraPreview" width="400" height="300" autoplay></video>
+    Take a Picture
+  </div>
+
+  <script>
+    const pulseImage = document.getElementById('pulseImage');
+    const cameraPopup = document.getElementById('cameraPopup');
+    const cameraPreview = document.getElementById('cameraPreview');
+
+    pulseImage.addEventListener('click', () => {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('You said:', transcript);
+
+        if (taps === 2) {
+          callGPT3(transcript);
+        } else {
+          regularCommand(transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Error during speech recognition:', event.error);
+      };
+
+      recognition.onend = () => {
+        if (taps !== 2) {
+          recognition.stop();
+        }
+      };
+    });
+
+    function callGPT3(userInput) {
+      const apiKey = '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';
+      const endpoint = 'https://api.openai.com/v1/chat/completions';
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            { role: 'user', content: userInput },
+          ],
+        }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        const generatedText = data.choices[0].message.content;
+        console.log('GPT-3 Response:', generatedText);
+        speakText(generatedText);
+      })
+      .catch(error => {
+        console.error('Error calling GPT-3:', error);
+      });
+    }
+
+    function speakText(text) {
+      const synth = window.speechSynthesis;
+      const utterance = new SpeechSynthesisUtterance(text);
+      synth.speak(utterance);
+    }
+
+    function regularCommand() {
+      const commands = {
+        'open youtube': () => openWebsite('https://www.youtube.com/'),
+        'open facebook': () => openWebsite('https://www.facebook.com/'),
+        'open instagram': () => openWebsite('https://www.instagram.com/'),
+        'open snapchat': () => openWebsite('https://www.snapchat.com/'),
+        'open spotify': () => openWebsite('https://www.spotify.com/'),
+        'open camera': () => openCameraPopup(),
+      };
+
+      const languages = ['en', 'es', 'fr', 'de', 'zh', 'ar', 'ru', 'hi', 'sw', 'el', 'ja', 'ko', 'it', 'pt'];
+      const randomLanguage = languages[Math.floor(Math.random() * languages.length)];
+      speakGreeting(getGreeting(randomLanguage));
+    }
+
+    function openCameraPopup() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then((stream) => {
+          cameraPreview.srcObject = stream;
+          cameraPopup.style.display = 'block';
+        })
+        .catch((error) => {
+          console.error('Error accessing camera:', error.message);
+        });
+    }
+
+    function takePicture() {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+
+      const pictureDataURL = canvas.toDataURL('image/png');
+      savePictureToGallery(pictureDataURL);
+
+      closeCameraPopup();
+    }
+
+    function savePictureToGallery(dataURL) {
+      console.log('Picture saved:', dataURL);
+    }
+
+    function closeCameraPopup() {
+      const stream = cameraPreview.srcObject;
+      const tracks = stream.getTracks();
+      tracks.forEach(track => track.stop());
+
+      cameraPopup.style.display = 'none';
+    }
+
+    function getGreeting(language) {
+      const greetings = {
+        'en': 'Hello, how can I assist you?',
+        'es': 'Hola, ¿cómo puedo ayudarte?',
+        'fr': 'Bonjour, comment puis-je vous aider?',
+        'de': 'Hallo, wie kann ich Ihnen helfen?',
+        'zh': '你好，我能帮助你什么呢？',
+        'ar': 'مرحبا، كيف يمكنني مساعدتك؟',
+        'ru': 'Привет, как я могу вам помочь?',
+        'hi': 'नमस्ते, मैं आपकी कैसे मदद कर सकता हूँ?',
+        'sw': 'Hujambo, nawezaje kusaidia?',
+        'el': 'Γεια σας, πώς μπορώ να σας βοηθήσω;',
+        'ja': 'こんにちは、どのようにお手伝いできますか？',
+        'ko': '안녕하세요, 어떻게 도와 드릴까요?',
+        'it': 'Ciao, come posso aiutarti?',
+        'pt': 'Olá, como posso ajudar você?',
+      };
+
+      return greetings[language] || greetings['en'];
+    }
+
+    // Event listener for taking a picture
+    takePictureBtn.addEventListener('click', () => {
+      takePicture();
+    });
+  </script>
+</body>
+</html>
